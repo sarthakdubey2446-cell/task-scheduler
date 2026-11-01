@@ -1,4 +1,4 @@
-# TaskFlow – Distributed Task Scheduling System
+# # Task Scheduler System
 
 A full-stack task scheduling application built with **Java 21, Spring Boot, React, MySQL, and RabbitMQ**.
 
