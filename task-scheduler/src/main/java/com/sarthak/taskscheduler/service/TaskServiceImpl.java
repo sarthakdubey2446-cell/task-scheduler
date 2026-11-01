@@ -16,10 +16,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -39,12 +41,10 @@ public class TaskServiceImpl implements TaskService {
                         .getContext()
                         .getAuthentication();
 
-        String email =
-                authentication.getName();
+        String email = authentication.getName();
 
-        User user =
-                userRepository.findByEmail(email)
-                        .orElseThrow();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
 
         Task task = Task.builder()
                 .title(request.title())
@@ -59,31 +59,26 @@ public class TaskServiceImpl implements TaskService {
 
         taskRepository.save(task);
     }
+
     @Override
     public List<TaskResponse> getMyTasks(TaskStatus status) {
-        String email =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getName();
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow();
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
 
         List<Task> tasks;
+
         if (status != null) {
-            tasks =
-                    taskRepository
-                            .findByUserAndStatus(
-                                    user,
-                                    status
-                            );
+            tasks = taskRepository.findByUserAndStatus(user, status);
         } else {
-            tasks =
-                    taskRepository
-                            .findByUser(user);
+            tasks = taskRepository.findByUser(user);
         }
+
         return tasks.stream()
                 .map(task -> TaskResponse.builder()
                         .id(task.getId())
@@ -94,27 +89,28 @@ public class TaskServiceImpl implements TaskService {
                         .build())
                 .toList();
     }
+
     @Override
     public TaskResponse getTaskById(Long id) {
-
 
         String email = SecurityContextHolder
                 .getContext()
                 .getAuthentication()
                 .getName();
 
-        User user = userRepository
-                .findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow();
 
-        Task task = taskRepository
-                .findById(id)
+        Task task = taskRepository.findById(id)
                 .orElseThrow(
                         () -> new TaskNotFoundException("Task not found")
                 );
 
         if (!task.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You are not allowed to access this task");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to access this task"
+            );
         }
 
         return TaskResponse.builder()
@@ -125,30 +121,24 @@ public class TaskServiceImpl implements TaskService {
                 .status(task.getStatus())
                 .build();
     }
+
     @Override
-    public void updateTask(
-            Long taskId,
-            UpdateTaskRequest request
-    ) {
+    public void updateTask(Long taskId, UpdateTaskRequest request) {
 
-        String email =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getName();
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
 
-        Task task =
-                taskRepository
-                        .findById(taskId)
-                        .orElseThrow();
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow();
 
         if (!task.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
                     "You cannot update this task"
             );
         }
@@ -159,33 +149,31 @@ public class TaskServiceImpl implements TaskService {
 
         taskRepository.save(task);
     }
+
     @Override
     public void deleteTask(Long taskId) {
 
-        String email =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getName();
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
 
-        Task task =
-                taskRepository
-                        .findById(taskId)
-                        .orElseThrow();
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow();
 
         if (!task.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
                     "You cannot delete this task"
             );
         }
 
         taskRepository.delete(task);
     }
+
     @Override
     public TaskPageResponse getMyTasks(
             int page,
@@ -193,41 +181,35 @@ public class TaskServiceImpl implements TaskService {
             String sortBy
     ) {
 
-        String email =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication()
-                        .getName();
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
 
-        Pageable pageable =
-                PageRequest.of(
-                        page,
-                        size,
-                        Sort.by(sortBy)
-                );
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(sortBy)
+        );
 
-        Page<Task> taskPage =
-                taskRepository.findByUser(
-                        user,
-                        pageable
-                );
+        Page<Task> taskPage = taskRepository.findByUser(
+                user,
+                pageable
+        );
 
-        List<TaskResponse> tasks =
-                taskPage.getContent()
-                        .stream()
-                        .map(task -> TaskResponse.builder()
-                                .id(task.getId())
-                                .title(task.getTitle())
-                                .description(task.getDescription())
-                                .status(task.getStatus())
-                                .scheduledTime(task.getScheduledTime())
-                                .build())
-                        .toList();
+        List<TaskResponse> tasks = taskPage.getContent()
+                .stream()
+                .map(task -> TaskResponse.builder()
+                        .id(task.getId())
+                        .title(task.getTitle())
+                        .description(task.getDescription())
+                        .status(task.getStatus())
+                        .scheduledTime(task.getScheduledTime())
+                        .build())
+                .toList();
 
         return TaskPageResponse.builder()
                 .tasks(tasks)
@@ -236,9 +218,27 @@ public class TaskServiceImpl implements TaskService {
                 .totalElements(taskPage.getTotalElements())
                 .build();
     }
+
+    @Override
     public Task cancelTask(Long taskId) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow();
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow();
+
+        if (!task.getUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You cannot cancel this task"
+            );
+        }
 
         task.setStatus(TaskStatus.CANCELLED);
         taskRepository.save(task);
